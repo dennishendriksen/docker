@@ -1,0 +1,24 @@
+version: "2.1"
+services:
+    app:
+      build: ./app
+      ports:
+        - "8081:8080"
+      links:
+        - db
+        - rserve
+      volumes:
+        - app-data:/opt/molgenis
+    db:
+      build: ./db
+      expose:
+        - "5432"
+      volumes:
+        - db-data:/var/lib/postgresql/data
+    rserve:
+      build: ./rserve
+      expose:
+        - "6311"
+volumes:
+    db-data:
+    app-data:
