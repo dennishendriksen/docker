@@ -1,0 +1,18 @@
+---
+# TODO [WARNING]: Consider using get_url or uri module rather than running wget  
+- name: Download Java
+  command: "wget -q -O {{java_archive}} --no-check-certificate --no-cookies --header 'Cookie: oraclelicense=accept-securebackup-cookie' {{download_url}} creates={{java_archive}}"
+
+- name: Install Java
+  yum:
+    name: "{{java_archive}}"
+    state: present
+
+- name: Make Java available for system
+  command: 'alternatives --install "/usr/bin/java" "java" "/usr/java/latest/jre/bin/java" 1'
+
+- name: Set Java
+  command: alternatives --set java "/usr/java/latest/jre/bin/java"
+  
+- name: Clean up
+  file: state=absent path={{java_archive}}

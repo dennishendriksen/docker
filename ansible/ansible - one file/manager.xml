@@ -1,0 +1,4 @@
+<!-- Restrict access to Tomcat manager applications to Jenkins continuous integration server running on molgenis50.target.rug.nl -->
+<Context privileged="true">
+    <Valve className="org.apache.catalina.valves.RemoteAddrValve" allow="195\.169\.23\.80"/>
+</Context>

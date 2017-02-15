@@ -1,0 +1,9 @@
+---
+- hosts: local
+  remote_user: root
+    
+  roles:
+  - common
+  - java
+  - tomcat
+  #- R

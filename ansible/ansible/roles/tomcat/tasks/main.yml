@@ -1,0 +1,98 @@
+---
+# FIXME only required for centos6 docker?
+- name: install Linux Standard Base Core module
+  yum:
+    name: redhat-lsb-core
+
+- name: copy tomcat7 init script
+  copy:
+    src: tomcat7
+    dest: /etc/init.d/
+    mode: 0755
+      
+- name: Create Tomcat service
+  command: chkconfig --add tomcat7
+    
+- name: Enable Tomcat service
+  command: chkconfig tomcat7 on
+    
+- name: Download Tomcat
+  get_url:
+    url: https://archive.apache.org/dist/tomcat/tomcat-7/v7.0.75/bin/apache-tomcat-7.0.75.tar.gz
+    dest: /srv/molgenis/apache-tomcat-7.0.75.tar.gz
+
+- name: Extract Tomcat
+  unarchive:
+    src: /srv/molgenis/apache-tomcat-7.0.75.tar.gz
+    dest: /srv/molgenis
+    owner: molgenis
+    group: molgenis
+
+# see: https://github.com/ansible/ansible-modules-core/issues/5744
+- name: Fix Tomcat owner/group
+  file:
+    path: /srv/molgenis/apache-tomcat-7.0.75
+    owner: molgenis
+    group: molgenis
+
+- name:
+  file:
+    src: /srv/molgenis/apache-tomcat-7.0.75
+    dest: /srv/molgenis/apache-tomcat
+    owner: molgenis
+    group: molgenis
+    state: link
+
+- name: copy setenv.sh
+  copy:
+    src: setenv.sh
+    dest: /srv/molgenis/apache-tomcat/bin/setenv.sh
+    owner: molgenis
+    group: molgenis
+    mode: 0755
+
+# TODO update /srv/molgenis/apache-tomcat/conf/server.xml
+#- name: update Tomcat server.xml
+    
+# TODO Replace passwords   
+- name: update Tomcat tomcat-users.xml
+  blockinfile:
+    dest: /etc/sudoers
+    marker: "## {mark} ANSIBLE MANAGED BLOCK"
+    content: |
+      <role rolename="manager-gui"/>
+      <user username="molgenis" password="password" roles="manager-gui,manager-script"/>
+      <role rolename="login"/>
+      <user username="molgenis_user" password="password" roles="login"/>
+
+- name: Create Catalina localhost directory
+  file:
+    path: /srv/molgenis/apache-tomcat/conf/Catalina/localhost
+    state: directory
+    owner: molgenis
+    group: molgenis
+  
+- name: Copy Catalina localhost manager.xml
+  copy:
+    src: manager.xml
+    dest: /srv/molgenis/apache-tomcat/conf/Catalina/localhost
+    owner: molgenis
+    group: molgenis
+
+- name: Remove Tomcat webapp - docs
+  command: rm -rf ~/apache-tomcat/webapps/docs
+
+- name: Remove Tomcat webapp - examples
+  command: rm -rf ~/apache-tomcat/webapps/examples
+
+# TODO decide how to deal with this, this will delete molgenis
+#- name: Remove Tomcat webapp - ROOT
+#  command: rm -rf ~/apache-tomcat/webapps/ROOT
+
+- name: Clean up
+  file: state=absent path=/srv/molgenis/apache-tomcat-7.0.75.tar.gz
+  
+- name: Start Tomcat
+  service:
+    name: tomcat7
+    state: started

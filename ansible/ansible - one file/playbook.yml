@@ -1,0 +1,237 @@
+---
+- hosts: local
+  remote_user: root
+  vars:
+    download_url: http://download.oracle.com/otn-pub/java/jdk/8u121-b13/e9e7ea248e2c4826b92b3f075a80e441/jdk-8u121-linux-x64.tar.gz
+    download_folder: /opt
+    java_name: "{{download_folder}}/jdk1.8.0_121"
+    java_archive: "{{download_folder}}/jdk-8u121-linux-x64.tar.gz"
+    
+  tasks:
+  
+  - name: copy tomcat7 init script
+    copy:
+      src: tomcat7
+      dest: /etc/init.d/
+
+  - name: Add EPEL repository
+    yum_repository:
+      name: epel
+      description: EPEL YUM repo
+      baseurl: https://download.fedoraproject.org/pub/epel/$releasever/$basearch/
+    
+  # TODO [WARNING]: Consider using yum, dnf or zypper module rather than running rpm
+  #- name: Add EPEL repo
+  #  command: rpm -Uvh http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
+    
+  # TODO check if this is required after downloading java
+  - name: install wget
+    yum:
+      name: wget
+  
+  - name: install nano
+    yum:
+      name: nano
+  
+  # TODO check if this is required on a MOLGENIS VM
+  #- name: install lsof
+  #  yum:
+  #    name: lsof
+  
+  # TODO check if this is required on a MOLGENIS VM
+  #- name: install graphviz
+  #  yum:
+  #    name: graphviz
+  
+  # TODO check if this is required on a MOLGENIS VM
+  #- name: install git
+  #  yum:
+  #    name: git
+  
+  # FAILED! => "msg": "No package matching 'mytop' found available, installed or updated"
+  #- name: install mytop
+  #  yum:
+  #    name: mytop
+  
+  - name: create molgenis user
+    user:
+      name: molgenis
+      shell: /bin/bash
+  
+  # TODO replace with blockinfile
+  - name: copy .profile
+    copy:
+      src: profile
+      dest: ~molgenis/.profile
+  
+  # excluded some statements in sudoers from the SOP  
+  - name: Allow 'molgenis' user to manage selected daemons
+    blockinfile:
+      dest: /etc/sudoers
+      marker: "## {mark} ANSIBLE MANAGED BLOCK"
+      content: |
+        molgenis        ALL=(ALL) NOPASSWD:/sbin/service tomcat7 status
+        molgenis        ALL=(ALL) NOPASSWD:/sbin/service tomcat7 start
+        molgenis        ALL=(ALL) NOPASSWD:/sbin/service tomcat7 stop
+        molgenis        ALL=(ALL) NOPASSWD:/sbin/service tomcat7 restart
+        molgenis        ALL=(ALL) NOPASSWD:/sbin/service httpd status
+        molgenis        ALL=(ALL) NOPASSWD:/sbin/service httpd start
+        molgenis        ALL=(ALL) NOPASSWD:/sbin/service httpd stop
+        molgenis        ALL=(ALL) NOPASSWD:/sbin/service httpd restart
+        molgenis        ALL=(ALL) NOPASSWD:/sbin/service httpd reload
+        molgenis        ALL=(ALL) NOPASSWD:/usr/bin/less /var/log/httpd/error_log
+        molgenis        ALL=(ALL) NOPASSWD:/usr/bin/less /var/log/httpd/ssl_error_log
+  
+  # TODO [WARNING]: Consider using get_url or uri module rather than running wget  
+  - name: Download Java
+    command: "wget -q -O {{java_archive}} --no-check-certificate --no-cookies --header 'Cookie: oraclelicense=accept-securebackup-cookie' {{download_url}} creates={{java_archive}}"
+
+  # TODO [WARNING]: Consider using unarchive module rather than running tar
+  - name: Unpack archive
+    command: "tar -zxf {{java_archive}} -C {{download_folder}} creates={{java_name}}"
+
+  - name: Fix ownership
+    file: state=directory path={{java_name}} owner=root group=root recurse=yes
+
+  - name: Make Java available for system
+    command: 'alternatives --install "/usr/bin/java" "java" "{{java_name}}/bin/java" 2000'
+
+  - name: Clean up
+    file: state=absent path={{java_archive}}
+    
+    # TODO use lineinfile
+  - name: Set JAVA_HOME
+    command: echo "export JAVA_HOME=/usr/java/latest/" >> /srv/molgenis/.bashrc
+    
+  - name: Create Tomcat service
+    command: chkconfig --add tomcat7
+    
+  - name: Enable Tomcat service
+    command: chkconfig tomcat7 on
+  
+  - name: install expat-devel
+    yum:
+      name: expat-devel
+  
+  - name: install gcc
+    yum:
+      name: gcc
+      
+  - name: install libcurl-devel
+    yum:
+      name: libcurl-devel
+
+  - name: install openssl-devel
+    yum:
+      name: openssl-devel
+      
+  - name: install perl-CPAN
+    yum:
+      name: perl-CPAN
+      
+  - name: install R
+    yum:
+      name: R
+      
+  - name: set R-libraries folder
+    blockinfile:
+      dest: /etc/profile
+      marker: "## {mark} ANSIBLE MANAGED BLOCK"
+      content: |
+        #
+        # Extra R-packages folder
+        #
+        export R_LIBS=/srv/molgenis/r-packages/
+
+  - name: Create CPAN directory
+    file: path=/root/.cpan/CPAN state=directory
+    
+  - name: Copy CPAN config
+    copy:
+      src: MyConfig.pm
+      dest: /root/.cpan/CPAN
+      
+  - name: Install R - cpanminus
+    command: cpan -i App::cpanminus
+  
+  - name: Install R - Spreadsheet::ParseExcel
+    command: cpanm install Spreadsheet::ParseExcel
+    
+  - name: Install R - Compress::Raw::Zlib
+    command: cpanm install Compress::Raw::Zlib
+
+  - name: Install R - Spreadsheet::ParseXLSX
+    command: cpanm install Spreadsheet::ParseXLSX
+
+  # TODO [WARNING]: Consider using file module with state=directory rather than running mkdir    
+  - name: Create R-packages directory
+    command: mkdir -p /srv/molgenis/r-packages/
+
+  - name: Install R-packages
+    command: Rscript -e 'install.packages(c("bitops", "RCurl", "rjson", "gdata", "corrplot", "qqman", "ggplot2", "ff", "httr"), repos="http://cran-mirror.cs.uu.nl/")'
+  
+  # [WARNING]: Consider using file module with owner rather than running chown
+  - name: Set R-packages permissions
+    command: chown -R molgenis:molgenis /srv/molgenis/r-packages/
+    
+  - name: Download Tomcat
+    get_url:
+      url: https://archive.apache.org/dist/tomcat/tomcat-7/v7.0.75/bin/apache-tomcat-7.0.75.tar.gz
+      dest: ~molgenis
+      
+  - name: Extract Tomcat
+    command: tar -xzvf ~molgenis/apache-tomcat-7.0.75.tar.gz ~molgenis
+    
+  - name: Create Tomcat symlink
+    command: ln -sf apache-tomcat-7.0.75 apache-tomcat
+    
+  - name: Modify Tomcat symlink props
+    command: chmod -R g+rX apache-tomcat
+
+  - name: copy setenv.sh
+    copy:
+      src: setenv.sh
+      dest: ~molgenis/apache-tomcat/bin/setenv.sh
+
+  - name: update Tomcat server.xml
+    lineinfile:
+    path: ~molgenis/apache-tomcat/conf/server.xml
+    state: present
+    regexp: '^%wheel\s'
+    line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+    
+  # Replace passwords   
+  - name: update Tomcat tomcat-users.xml
+    blockinfile:
+      dest: /etc/sudoers
+      marker: "## {mark} ANSIBLE MANAGED BLOCK"
+      content: |
+        <role rolename="manager-gui"/>
+        <user username="molgenis" password="password" roles="manager-gui,manager-script"/>
+        <role rolename="login"/>
+        <user username="molgenis_user" password="password" roles="login"/>
+        
+  - name: Create Catalina localhost directory
+    command: mkdir -p ~molgenis/apache-tomcat/conf/Catalina/localhost
+  
+  - name: Copy Catalina localhost manager.xml
+    copy:
+      src: manager.xml
+      dest: ~molgenis/apache-tomcat/conf/Catalina/localhost
+
+  - name: Remove Tomcat webapp - docs
+    command: rm -rf ~/apache-tomcat/webapps/docs
+
+  - name: Remove Tomcat webapp - examples
+    command: rm -rf ~/apache-tomcat/webapps/examples
+
+  # TODO decide how to deal with this, this will delete molgenis
+  - name: Remove Tomcat webapp - ROOT
+    command: rm -rf ~/apache-tomcat/webapps/ROOT
+    
+  - name: Start Tomcat
+    command: sudo service tomcat7 start
+  
+  # TODO enable after install of httpd
+  #- name: Start Httpd
+  #  command: sudo service httpd start

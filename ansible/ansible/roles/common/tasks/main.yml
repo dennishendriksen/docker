@@ -1,0 +1,79 @@
+---
+- name: Add EPEL repository
+  yum_repository:
+    name: epel
+    description: EPEL YUM repo
+    baseurl: https://download.fedoraproject.org/pub/epel/$releasever/$basearch/
+    
+# TODO check if this is required after downloading java
+- name: install wget
+  yum:
+    name: wget
+  
+- name: install nano
+  yum:
+    name: nano
+  
+# TODO check if this is required on a MOLGENIS VM
+#- name: install lsof
+#  yum:
+#    name: lsof
+  
+# TODO check if this is required on a MOLGENIS VM
+#- name: install graphviz
+#  yum:
+#    name: graphviz
+  
+# TODO check if this is required on a MOLGENIS VM
+#- name: install git
+#  yum:
+#    name: git
+  
+# FAILED! => "msg": "No package matching 'mytop' found available, installed or updated"
+#- name: install mytop
+#  yum:
+#    name: mytop
+  
+- name: create molgenis user
+  user:
+    name: molgenis
+    home: /srv/molgenis
+    shell: /bin/bash
+  
+# TODO replace with blockinfile
+- name: copy .profile
+  copy:
+    src: profile
+    dest: ~molgenis/.profile
+    owner: molgenis
+    group: molgenis
+  
+# excluded some statements in sudoers from the SOP  
+- name: Allow 'molgenis' user to manage selected daemons
+  blockinfile:
+    dest: /etc/sudoers
+    marker: "## {mark} ANSIBLE MANAGED BLOCK"
+    content: |
+      molgenis        ALL=(ALL) NOPASSWD:/sbin/service tomcat7 status
+      molgenis        ALL=(ALL) NOPASSWD:/sbin/service tomcat7 start
+      molgenis        ALL=(ALL) NOPASSWD:/sbin/service tomcat7 stop
+      molgenis        ALL=(ALL) NOPASSWD:/sbin/service tomcat7 restart
+      molgenis        ALL=(ALL) NOPASSWD:/sbin/service httpd status
+      molgenis        ALL=(ALL) NOPASSWD:/sbin/service httpd start
+      molgenis        ALL=(ALL) NOPASSWD:/sbin/service httpd stop
+      molgenis        ALL=(ALL) NOPASSWD:/sbin/service httpd restart
+      molgenis        ALL=(ALL) NOPASSWD:/sbin/service httpd reload
+      molgenis        ALL=(ALL) NOPASSWD:/usr/bin/less /var/log/httpd/error_log
+      molgenis        ALL=(ALL) NOPASSWD:/usr/bin/less /var/log/httpd/ssl_error_log
+
+- name: Set JAVA_HOME
+  lineinfile:
+    dest: "/srv/molgenis/.bashrc"
+    create: yes
+    state: present
+    regexp: '^export JAVA_HOME\s'
+    line: 'export JAVA_HOME=/usr/java/latest/'
+  
+# TODO enable after install of httpd
+#- name: Start Httpd
+#  command: sudo service httpd start

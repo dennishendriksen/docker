@@ -1,1 +1,1 @@
-install.packages('Rserve', repos='https://cran.r-project.org')
+install.packages(c("Rserve", "httr"), repos="https://cran.r-project.org")

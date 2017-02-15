@@ -7,6 +7,7 @@ services:
       links:
         - db
         - rserve
+        - elasticsearch
       volumes:
         - app-data:/opt/molgenis
     db:
@@ -19,6 +20,16 @@ services:
       build: ./rserve
       expose:
         - "6311"
+      links:
+        - app
+    elasticsearch:
+      image: elasticsearch:1.7.5
+      expose:
+        - "9200"
+        - "9300"
+      volumes:
+        - elasticsearch-data:/usr/share/elasticsearch/data
 volumes:
     db-data:
     app-data:
+    elasticsearch-data:

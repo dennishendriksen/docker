@@ -1,0 +1,32 @@
+---
+- name: upgrade all packages
+  yum: name=* state=latest
+  
+- name: install cronie
+  yum: pkg=cronie state=installed
+
+- name: install git
+  yum: pkg=git state=installed
+
+#- name: enable cron on boot
+#  command: chkconfig crond on
+
+#- name: start cron daemon
+#  command: service crond start
+
+  
+- name: enable cron on boot and start       
+  service:
+    name: crond
+    enabled: yes
+    state: started
+
+- name: stop cron
+  service:
+    name: crond
+    state: stopped
+
+- name: start cron
+  service:
+    name: crond
+    state: started    

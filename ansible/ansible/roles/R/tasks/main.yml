@@ -1,0 +1,65 @@
+---
+- name: install expat-devel
+  yum:
+    name: expat-devel
+  
+- name: install gcc
+  yum:
+    name: gcc
+      
+- name: install libcurl-devel
+  yum:
+    name: libcurl-devel
+
+- name: install openssl-devel
+  yum:
+    name: openssl-devel
+      
+- name: install perl-CPAN
+  yum:
+    name: perl-CPAN
+      
+- name: install R
+  yum:
+    name: R
+      
+- name: set R-libraries folder
+  blockinfile:
+    dest: /etc/profile
+    marker: "## {mark} ANSIBLE MANAGED BLOCK"
+    content: |
+      #
+      # Extra R-packages folder
+      #
+      export R_LIBS=/srv/molgenis/r-packages/
+
+- name: Create CPAN directory
+  file: path=/root/.cpan/CPAN state=directory
+    
+- name: Copy CPAN config
+  copy:
+    src: MyConfig.pm
+    dest: /root/.cpan/CPAN
+      
+- name: Install R - cpanminus
+  command: cpan -i App::cpanminus
+ 
+- name: Install R - Spreadsheet::ParseExcel
+  command: cpanm install Spreadsheet::ParseExcel
+    
+- name: Install R - Compress::Raw::Zlib
+  command: cpanm install Compress::Raw::Zlib
+
+- name: Install R - Spreadsheet::ParseXLSX
+  command: cpanm install Spreadsheet::ParseXLSX
+
+# TODO [WARNING]: Consider using file module with state=directory rather than running mkdir    
+- name: Create R-packages directory
+  command: mkdir -p /srv/molgenis/r-packages/
+
+- name: Install R-packages
+  command: Rscript -e 'install.packages(c("bitops", "RCurl", "rjson", "gdata", "corrplot", "qqman", "ggplot2", "ff", "httr"), repos="http://cran-mirror.cs.uu.nl/")'
+  
+# [WARNING]: Consider using file module with owner rather than running chown
+- name: Set R-packages permissions
+  command: chown -R molgenis:molgenis /srv/molgenis/r-packages/
